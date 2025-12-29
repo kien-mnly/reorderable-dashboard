@@ -57,8 +57,8 @@ class ReorderableWrap extends StatefulWidget {
     this.maxMainAxisCount,
     this.onNoReorder,
     this.onReorderStarted,
-    this.reorderAnimationDuration = const Duration(milliseconds: 1000),
-    this.scrollAnimationDuration = const Duration(milliseconds: 200),
+    this.reorderAnimationDuration = const Duration(milliseconds: 250),
+    this.scrollAnimationDuration = const Duration(milliseconds: 250),
     this.ignorePrimaryScrollController = false,
     this.enableReorder = true,
     Key? key,
@@ -1181,7 +1181,10 @@ class _ReorderableWrapContentState extends State<_ReorderableWrapContent>
       child: Align(
         alignment: alignment,
         child: ClipPath(
-          clipper: _DiagonalCornerClipper(corner: corner),
+          clipper: _CornerBorder(
+            corner: corner,
+            thicknessFactor: 0.10,
+          ),
           child: SizedBox(
             width: childSize.width,
             height: childSize.height,
@@ -1322,49 +1325,71 @@ enum _DiagonalCorner {
   bottomRight,
 }
 
-class _DiagonalCornerClipper extends CustomClipper<Path> {
-  const _DiagonalCornerClipper({required this.corner});
+/// Clips a widget to a thin (default 10%) border-strip region near a corner.
+///
+/// Instead of a filled diagonal triangle, this exposes only the two edge strips
+/// that meet at the given corner (e.g. top+right for topRight).
+class _CornerBorder extends CustomClipper<Path> {
+  const _CornerBorder({
+    required this.corner,
+    this.thicknessFactor = 0.10,
+  });
 
   final _DiagonalCorner corner;
 
+  /// Thickness as a fraction of the shorter side of the box.
+  ///
+  /// Kept as a factor so it scales with item size.
+  final double thicknessFactor;
+
   @override
   Path getClip(Size size) {
+    final double thickness = (min(size.width, size.height) * thicknessFactor)
+        .clamp(0.0, double.infinity);
+
+    if (thickness <= 0) {
+      return Path();
+    }
+
     final Path path = Path();
+
+    // Two rectangles (edge strips) that meet at the corner.
+    Rect bar1;
+    Rect bar2;
     switch (corner) {
       case _DiagonalCorner.topLeft:
-        path
-          ..moveTo(0, 0)
-          ..lineTo(size.width, 0)
-          ..lineTo(0, size.height)
-          ..close();
+        bar1 = Rect.fromLTWH(0, 0, size.width, thickness); // top
+        bar2 = Rect.fromLTWH(0, 0, thickness, size.height); // left
         break;
       case _DiagonalCorner.topRight:
-        path
-          ..moveTo(size.width, 0)
-          ..lineTo(0, 0)
-          ..lineTo(size.width, size.height)
-          ..close();
+        bar1 = Rect.fromLTWH(0, 0, size.width, thickness); // top
+        bar2 = Rect.fromLTWH(
+            size.width - thickness, 0, thickness, size.height); // right
         break;
       case _DiagonalCorner.bottomLeft:
-        path
-          ..moveTo(0, size.height)
-          ..lineTo(0, 0)
-          ..lineTo(size.width, size.height)
-          ..close();
+        bar1 = Rect.fromLTWH(
+            0, size.height - thickness, size.width, thickness); // bottom
+        bar2 = Rect.fromLTWH(0, 0, thickness, size.height); // left
         break;
       case _DiagonalCorner.bottomRight:
-        path
-          ..moveTo(size.width, size.height)
-          ..lineTo(size.width, 0)
-          ..lineTo(0, size.height)
-          ..close();
+        bar1 = Rect.fromLTWH(
+            0, size.height - thickness, size.width, thickness); // bottom
+        bar2 = Rect.fromLTWH(
+            size.width - thickness, 0, thickness, size.height); // right
         break;
     }
+
+    path
+      ..addRect(bar1)
+      ..addRect(bar2)
+      ..fillType = PathFillType.evenOdd;
+
     return path;
   }
 
   @override
-  bool shouldReclip(covariant _DiagonalCornerClipper oldClipper) {
-    return oldClipper.corner != corner;
+  bool shouldReclip(covariant _CornerBorder oldClipper) {
+    return oldClipper.corner != corner ||
+        oldClipper.thicknessFactor != thicknessFactor;
   }
 }
