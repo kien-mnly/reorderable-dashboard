@@ -1043,8 +1043,8 @@ class _ReorderableWrapContentState extends State<_ReorderableWrapContent>
           if (containedDraggable.isReorderable)
             _buildDiagonalDragTarget(
               corner: widget.direction == Axis.horizontal
-                  ? _DiagonalCorner.topRight
-                  : _DiagonalCorner.topRight,
+                  ? _DiagonalCorner.topLeft
+                  : _DiagonalCorner.topLeft,
               target: nextDragTarget,
               childSize: _childSizes[index],
             ),
