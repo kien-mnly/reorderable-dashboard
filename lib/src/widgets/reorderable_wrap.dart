@@ -57,7 +57,7 @@ class ReorderableWrap extends StatefulWidget {
     this.maxMainAxisCount,
     this.onNoReorder,
     this.onReorderStarted,
-    this.reorderAnimationDuration = const Duration(milliseconds: 200),
+    this.reorderAnimationDuration = const Duration(milliseconds: 1000),
     this.scrollAnimationDuration = const Duration(milliseconds: 200),
     this.ignorePrimaryScrollController = false,
     this.enableReorder = true,
@@ -324,35 +324,34 @@ class _ReorderableWrapState extends State<ReorderableWrap> {
 // This widget is responsible for the inside of the Overlay in the
 // ReorderableListView.
 class _ReorderableWrapContent extends StatefulWidget {
-  const _ReorderableWrapContent({
-    required this.children,
-    required this.direction,
-    required this.scrollDirection,
-    required this.scrollPhysics,
-    required this.padding,
-    required this.onReorder,
-    required this.onNoReorder,
-    required this.onReorderStarted,
-    required this.buildItemsContainer,
-    required this.buildDraggableFeedback,
-    required this.needsLongPressDraggable,
-    required this.alignment,
-    required this.spacing,
-    required this.runAlignment,
-    required this.runSpacing,
-    required this.crossAxisAlignment,
-    required this.textDirection,
-    required this.verticalDirection,
-    required this.minMainAxisCount,
-    required this.maxMainAxisCount,
-    this.header,
-    this.footer,
-    this.controller,
-    this.reorderAnimationDuration = const Duration(milliseconds: 200),
-    this.scrollAnimationDuration = const Duration(milliseconds: 200),
-    required this.enableReorder
-  });
-  
+  const _ReorderableWrapContent(
+      {required this.children,
+      required this.direction,
+      required this.scrollDirection,
+      required this.scrollPhysics,
+      required this.padding,
+      required this.onReorder,
+      required this.onNoReorder,
+      required this.onReorderStarted,
+      required this.buildItemsContainer,
+      required this.buildDraggableFeedback,
+      required this.needsLongPressDraggable,
+      required this.alignment,
+      required this.spacing,
+      required this.runAlignment,
+      required this.runSpacing,
+      required this.crossAxisAlignment,
+      required this.textDirection,
+      required this.verticalDirection,
+      required this.minMainAxisCount,
+      required this.maxMainAxisCount,
+      this.header,
+      this.footer,
+      this.controller,
+      this.reorderAnimationDuration = const Duration(milliseconds: 200),
+      this.scrollAnimationDuration = const Duration(milliseconds: 200),
+      required this.enableReorder});
+
   final List<Widget>? header;
   final Widget? footer;
   final ScrollController? controller;
@@ -1014,47 +1013,41 @@ class _ReorderableWrapContentState extends State<_ReorderableWrapContent>
         builder: (BuildContext context, List<int?> acceptedCandidates,
                 List<dynamic> rejectedCandidates) =>
             SizedBox(),
-        onWillAccept: (int? toAccept) => _onWillAccept(toAccept, true),
-        onAccept: (int accepted) {},
+        onWillAcceptWithDetails: (DragTargetDetails<int> details) =>
+            _onWillAccept(details.data, true),
+        onAcceptWithDetails: (DragTargetDetails<int> details) {},
         onLeave: (Object? leaving) {},
       );
       Widget nextDragTarget = DragTarget<int>(
         builder: (BuildContext context, List<int?> acceptedCandidates,
                 List<dynamic> rejectedCandidates) =>
             SizedBox(),
-        onWillAccept: (int? toAccept) => _onWillAccept(toAccept, false),
-        onAccept: (int accepted) {},
+        onWillAcceptWithDetails: (DragTargetDetails<int> details) =>
+            _onWillAccept(details.data, false),
+        onAcceptWithDetails: (DragTargetDetails<int> details) {},
         onLeave: (Object? leaving) {},
       );
 
       Widget dragTarget = Stack(
-//        key: keyIndexGlobalKey,
-//        fit: StackFit.passthrough,
         clipBehavior: Clip.hardEdge,
         children: <Widget>[
           containedDraggable.builder,
           if (containedDraggable.isReorderable)
-            Positioned(
-                left: 0,
-                top: 0,
-                width: widget.direction == Axis.horizontal
-                    ? _childSizes[index].width / 2
-                    : _childSizes[index].width,
-                height: widget.direction == Axis.vertical
-                    ? _childSizes[index].height / 2
-                    : _childSizes[index].height,
-                child: preDragTarget),
+            _buildDiagonalDragTarget(
+              corner: widget.direction == Axis.horizontal
+                  ? _DiagonalCorner.bottomRight
+                  : _DiagonalCorner.bottomRight,
+              target: preDragTarget,
+              childSize: _childSizes[index],
+            ),
           if (containedDraggable.isReorderable)
-            Positioned(
-                right: 0,
-                bottom: 0,
-                width: widget.direction == Axis.horizontal
-                    ? _childSizes[index].width / 2
-                    : _childSizes[index].width,
-                height: widget.direction == Axis.vertical
-                    ? _childSizes[index].height / 2
-                    : _childSizes[index].height,
-                child: nextDragTarget),
+            _buildDiagonalDragTarget(
+              corner: widget.direction == Axis.horizontal
+                  ? _DiagonalCorner.topRight
+                  : _DiagonalCorner.topRight,
+              target: nextDragTarget,
+              childSize: _childSizes[index],
+            ),
         ],
       );
 //      return dragTarget;
@@ -1161,6 +1154,42 @@ class _ReorderableWrapContentState extends State<_ReorderableWrapContent>
 //      return dragTarget;
     });
     return KeyedSubtree(key: ValueKey(index), child: builder);
+  }
+
+  Widget _buildDiagonalDragTarget({
+    required _DiagonalCorner corner,
+    required Widget target,
+    required Size childSize,
+  }) {
+    final Alignment alignment;
+    switch (corner) {
+      case _DiagonalCorner.topLeft:
+        alignment = Alignment.topLeft;
+        break;
+      case _DiagonalCorner.topRight:
+        alignment = Alignment.topRight;
+        break;
+      case _DiagonalCorner.bottomLeft:
+        alignment = Alignment.bottomLeft;
+        break;
+      case _DiagonalCorner.bottomRight:
+        alignment = Alignment.bottomRight;
+        break;
+    }
+
+    return Positioned.fill(
+      child: Align(
+        alignment: alignment,
+        child: ClipPath(
+          clipper: _DiagonalCornerClipper(corner: corner),
+          child: SizedBox(
+            width: childSize.width,
+            height: childSize.height,
+            child: target,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -1284,4 +1313,58 @@ class ContainedDraggable {
   bool isReorderable;
 
   ContainedDraggable(this.builder, this.isReorderable);
+}
+
+enum _DiagonalCorner {
+  topLeft,
+  topRight,
+  bottomLeft,
+  bottomRight,
+}
+
+class _DiagonalCornerClipper extends CustomClipper<Path> {
+  const _DiagonalCornerClipper({required this.corner});
+
+  final _DiagonalCorner corner;
+
+  @override
+  Path getClip(Size size) {
+    final Path path = Path();
+    switch (corner) {
+      case _DiagonalCorner.topLeft:
+        path
+          ..moveTo(0, 0)
+          ..lineTo(size.width, 0)
+          ..lineTo(0, size.height)
+          ..close();
+        break;
+      case _DiagonalCorner.topRight:
+        path
+          ..moveTo(size.width, 0)
+          ..lineTo(0, 0)
+          ..lineTo(size.width, size.height)
+          ..close();
+        break;
+      case _DiagonalCorner.bottomLeft:
+        path
+          ..moveTo(0, size.height)
+          ..lineTo(0, 0)
+          ..lineTo(size.width, size.height)
+          ..close();
+        break;
+      case _DiagonalCorner.bottomRight:
+        path
+          ..moveTo(size.width, size.height)
+          ..lineTo(size.width, 0)
+          ..lineTo(0, size.height)
+          ..close();
+        break;
+    }
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant _DiagonalCornerClipper oldClipper) {
+    return oldClipper.corner != corner;
+  }
 }
