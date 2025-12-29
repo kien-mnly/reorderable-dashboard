@@ -57,10 +57,11 @@ class ReorderableWrap extends StatefulWidget {
     this.maxMainAxisCount,
     this.onNoReorder,
     this.onReorderStarted,
-    this.reorderAnimationDuration = const Duration(milliseconds: 250),
-    this.scrollAnimationDuration = const Duration(milliseconds: 250),
+    this.reorderAnimationDuration = const Duration(milliseconds: 500),
+    this.scrollAnimationDuration = const Duration(milliseconds: 500),
     this.ignorePrimaryScrollController = false,
     this.enableReorder = true,
+    this.animateCrossAxisOnCrossRunReorder = true,
     Key? key,
   }) :
 //        assert(
@@ -249,6 +250,17 @@ class ReorderableWrap extends StatefulWidget {
   final bool ignorePrimaryScrollController;
   final bool enableReorder;
 
+  /// If true, when a drag causes items to move between different runs (rows/columns)
+  /// in the underlying [Wrap], the appearing/disappearing animation will use the
+  /// cross-axis instead of the main axis.
+  ///
+  /// Example: for a horizontal wrap (`direction = Axis.horizontal`), cross-run
+  /// movement corresponds to vertical motion between rows, so the animation will
+  /// expand/collapse vertically.
+  ///
+  /// Defaults to true.
+  final bool animateCrossAxisOnCrossRunReorder;
+
   @override
   _ReorderableWrapState createState() => _ReorderableWrapState();
 }
@@ -303,6 +315,8 @@ class _ReorderableWrapState extends State<ReorderableWrap> {
           reorderAnimationDuration: widget.reorderAnimationDuration,
           scrollAnimationDuration: widget.scrollAnimationDuration,
           enableReorder: widget.enableReorder,
+          animateCrossAxisOnCrossRunReorder:
+              widget.animateCrossAxisOnCrossRunReorder,
         );
       },
     );
@@ -350,7 +364,8 @@ class _ReorderableWrapContent extends StatefulWidget {
       this.controller,
       this.reorderAnimationDuration = const Duration(milliseconds: 200),
       this.scrollAnimationDuration = const Duration(milliseconds: 200),
-      required this.enableReorder});
+      required this.enableReorder,
+      required this.animateCrossAxisOnCrossRunReorder});
 
   final List<Widget>? header;
   final Widget? footer;
@@ -379,6 +394,7 @@ class _ReorderableWrapContent extends StatefulWidget {
   final Duration reorderAnimationDuration;
   final Duration scrollAnimationDuration;
   final bool enableReorder;
+  final bool animateCrossAxisOnCrossRunReorder;
 
   @override
   _ReorderableWrapContentState createState() => _ReorderableWrapContentState();
@@ -450,6 +466,26 @@ class _ReorderableWrapContentState extends State<_ReorderableWrapContent>
   late List<int> _nextChildRunIndexes;
   late List<Widget?> _wrapChildren;
   late bool enableReorder;
+
+  Axis get _crossAxis =>
+      widget.direction == Axis.horizontal ? Axis.vertical : Axis.horizontal;
+
+  Axis _animationAxisForDisplayIndex(int displayIndex) {
+    if (!widget.animateCrossAxisOnCrossRunReorder) {
+      return widget.direction;
+    }
+    // If we don't have run info yet, fall back to current behavior.
+    if (_childRunIndexes.isEmpty || _wrapChildRunIndexes.isEmpty) {
+      return widget.direction;
+    }
+
+    final int index = _childDisplayIndexToIndex[displayIndex];
+    // When the run index differs from the last committed run index, this item
+    // is effectively moving between runs.
+    final bool isCrossRun = _childRunIndexes[index] != -1 &&
+        _childRunIndexes[index] != _wrapChildRunIndexes[displayIndex];
+    return isCrossRun ? _crossAxis : widget.direction;
+  }
 
   Size get _dropAreaSize {
     if (_draggingFeedbackSize == null) {
@@ -787,7 +823,7 @@ class _ReorderableWrapContentState extends State<_ReorderableWrapContent>
         child,
         _entranceController,
         null,
-        widget.direction,
+        _animationAxisForDisplayIndex(displayIndex),
       );
     }
 
@@ -796,7 +832,7 @@ class _ReorderableWrapContentState extends State<_ReorderableWrapContent>
         child,
         _ghostController,
         null,
-        widget.direction,
+        _animationAxisForDisplayIndex(displayIndex),
       );
     }
 
