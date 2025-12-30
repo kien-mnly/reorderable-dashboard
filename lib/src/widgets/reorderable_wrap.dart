@@ -954,25 +954,10 @@ class _ReorderableWrapContentState extends State<_ReorderableWrapContent>
 
       bool _onWillAccept(int? toAccept, bool isPre) {
         int nextDisplayIndex;
-
-        // Fix for oscillation with mixed-size widgets:
-        // If we just swapped with this item (it matches _ghostDisplayIndex),
-        // we require hitting the "far" edge to swap back (Late Swap).
-        // Otherwise, we use the "near" edge (Early Swap) for better responsiveness.
-        bool useLateSwap = _ghostDisplayIndex == displayIndex;
-
         if (_currentDisplayIndex < displayIndex) {
-          if (useLateSwap) {
-            nextDisplayIndex = isPre ? displayIndex : displayIndex - 1;
-          } else {
-            nextDisplayIndex = isPre ? displayIndex - 1 : displayIndex;
-          }
+          nextDisplayIndex = isPre ? displayIndex - 1 : displayIndex;
         } else {
-          if (useLateSwap) {
-            nextDisplayIndex = !isPre ? displayIndex : displayIndex + 1;
-          } else {
-            nextDisplayIndex = !isPre ? displayIndex + 1 : displayIndex;
-          }
+          nextDisplayIndex = !isPre ? displayIndex + 1 : displayIndex;
         }
 
         bool movingToAdjacentChild =
@@ -1058,8 +1043,8 @@ class _ReorderableWrapContentState extends State<_ReorderableWrapContent>
           if (containedDraggable.isReorderable)
             _buildDiagonalDragTarget(
               corner: widget.direction == Axis.horizontal
-                  ? _DiagonalCorner.topLeft
-                  : _DiagonalCorner.topLeft,
+                  ? _DiagonalCorner.topRight
+                  : _DiagonalCorner.topRight,
               target: nextDragTarget,
               childSize: _childSizes[index],
             ),
