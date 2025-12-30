@@ -1198,7 +1198,7 @@ class _ReorderableWrapContentState extends State<_ReorderableWrapContent>
         child: ClipPath(
           clipper: _CornerBorder(
             corner: corner,
-            thicknessFactor: 0.10,
+            thicknessFactor: 0.20,
           ),
           child: SizedBox(
             width: childSize.width,
