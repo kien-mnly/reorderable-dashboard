@@ -960,53 +960,28 @@ class _ReorderableWrapContentState extends State<_ReorderableWrapContent>
           nextDisplayIndex = !isPre ? displayIndex + 1 : displayIndex;
         }
 
+        if (_nextDisplayIndex == nextDisplayIndex) {
+          return false;
+        }
+
         bool movingToAdjacentChild =
             nextDisplayIndex <= _currentDisplayIndex + 1 &&
                 nextDisplayIndex >= _currentDisplayIndex - 1;
+
         bool willAccept = _dragStartIndex == toAccept &&
-//          toAccept != toWrap.key &&
             toAccept != index &&
             (_entranceController.isCompleted || !movingToAdjacentChild) &&
             _currentDisplayIndex != nextDisplayIndex;
-//        debugPrint('_onWillAccept: index:$index displayIndex:$displayIndex toAccept:$toAccept return:$willAccept isPre:$isPre '
-//          '_currentDisplayIndex:$_currentDisplayIndex nextDisplayIndex:$nextDisplayIndex _dragStartIndex:$_dragStartIndex');
 
-        if (!willAccept) {
-          return false;
-        }
-        if (!(_childDisplayIndexToIndex[_currentDisplayIndex] != index &&
-            _currentDisplayIndex != displayIndex)) {
-          return false;
-        }
-
-        if (_wrapKey.currentContext != null) {
-          RenderWrapWithMainAxisCount wrapRenderObject =
-              _wrapKey.currentContext!.findRenderObject()
-                  as RenderWrapWithMainAxisCount;
-          _wrapChildRunIndexes = wrapRenderObject.childRunIndexes;
-//          for (int i=0; i<_childRunIndexes.length; i++) {
-//            _childRunIndexes[i] = _wrapChildRunIndexes[_childIndexToDisplayIndex[i]];
-//          }
-        } else {
-          if (widget.minMainAxisCount != null &&
-              widget.maxMainAxisCount != null &&
-              widget.minMainAxisCount == widget.maxMainAxisCount) {
-            _wrapChildRunIndexes = List.generate(widget.children.length,
-                (int index) => index ~/ widget.minMainAxisCount!);
-//            for (int i=0; i<_childRunIndexes.length; i++) {
-//              _childRunIndexes[i] = _wrapChildRunIndexes[_childIndexToDisplayIndex[i]];
-//            }
-          }
-        }
+        if (!willAccept) return false;
 
         setState(() {
           _nextDisplayIndex = nextDisplayIndex;
-
           _requestAnimationToNextIndex(isAcceptingNewTarget: true);
         });
+
         _scrollTo(context);
-        // If the target is not the original starting point, then we will accept the drop.
-        return willAccept; //_dragging == toAccept && toAccept != toWrap.key;
+        return true;
       }
 
       Widget preDragTarget = DragTarget<int>(
