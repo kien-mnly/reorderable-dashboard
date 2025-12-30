@@ -954,34 +954,74 @@ class _ReorderableWrapContentState extends State<_ReorderableWrapContent>
 
       bool _onWillAccept(int? toAccept, bool isPre) {
         int nextDisplayIndex;
-        if (_currentDisplayIndex < displayIndex) {
-          nextDisplayIndex = isPre ? displayIndex - 1 : displayIndex;
-        } else {
-          nextDisplayIndex = !isPre ? displayIndex + 1 : displayIndex;
-        }
 
-        if (_nextDisplayIndex == nextDisplayIndex) {
-          return false;
+        // Fix for oscillation with mixed-size widgets:
+        // If we just swapped with this item (it matches _ghostDisplayIndex),
+        // we require hitting the "far" edge to swap back (Late Swap).
+        // Otherwise, we use the "near" edge (Early Swap) for better responsiveness.
+        bool useLateSwap = _ghostDisplayIndex == displayIndex;
+
+        if (_currentDisplayIndex < displayIndex) {
+          if (useLateSwap) {
+            nextDisplayIndex = isPre ? displayIndex : displayIndex - 1;
+          } else {
+            nextDisplayIndex = isPre ? displayIndex - 1 : displayIndex;
+          }
+        } else {
+          if (useLateSwap) {
+            nextDisplayIndex = !isPre ? displayIndex : displayIndex + 1;
+          } else {
+            nextDisplayIndex = !isPre ? displayIndex + 1 : displayIndex;
+          }
         }
 
         bool movingToAdjacentChild =
             nextDisplayIndex <= _currentDisplayIndex + 1 &&
                 nextDisplayIndex >= _currentDisplayIndex - 1;
-
         bool willAccept = _dragStartIndex == toAccept &&
+//          toAccept != toWrap.key &&
             toAccept != index &&
             (_entranceController.isCompleted || !movingToAdjacentChild) &&
             _currentDisplayIndex != nextDisplayIndex;
+//        debugPrint('_onWillAccept: index:$index displayIndex:$displayIndex toAccept:$toAccept return:$willAccept isPre:$isPre '
+//          '_currentDisplayIndex:$_currentDisplayIndex nextDisplayIndex:$nextDisplayIndex _dragStartIndex:$_dragStartIndex');
 
-        if (!willAccept) return false;
+        if (!willAccept) {
+          return false;
+        }
+        if (!(_childDisplayIndexToIndex[_currentDisplayIndex] != index &&
+            _currentDisplayIndex != displayIndex)) {
+          return false;
+        }
+
+        if (_wrapKey.currentContext != null) {
+          RenderWrapWithMainAxisCount wrapRenderObject =
+              _wrapKey.currentContext!.findRenderObject()
+                  as RenderWrapWithMainAxisCount;
+          _wrapChildRunIndexes = wrapRenderObject.childRunIndexes;
+//          for (int i=0; i<_childRunIndexes.length; i++) {
+//            _childRunIndexes[i] = _wrapChildRunIndexes[_childIndexToDisplayIndex[i]];
+//          }
+        } else {
+          if (widget.minMainAxisCount != null &&
+              widget.maxMainAxisCount != null &&
+              widget.minMainAxisCount == widget.maxMainAxisCount) {
+            _wrapChildRunIndexes = List.generate(widget.children.length,
+                (int index) => index ~/ widget.minMainAxisCount!);
+//            for (int i=0; i<_childRunIndexes.length; i++) {
+//              _childRunIndexes[i] = _wrapChildRunIndexes[_childIndexToDisplayIndex[i]];
+//            }
+          }
+        }
 
         setState(() {
           _nextDisplayIndex = nextDisplayIndex;
+
           _requestAnimationToNextIndex(isAcceptingNewTarget: true);
         });
-
         _scrollTo(context);
-        return true;
+        // If the target is not the original starting point, then we will accept the drop.
+        return willAccept; //_dragging == toAccept && toAccept != toWrap.key;
       }
 
       Widget preDragTarget = DragTarget<int>(
